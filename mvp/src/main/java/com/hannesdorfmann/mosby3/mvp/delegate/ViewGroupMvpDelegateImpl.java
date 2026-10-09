@@ -22,7 +22,7 @@ import android.app.Application;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Parcelable;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -77,15 +77,23 @@ public class ViewGroupMvpDelegateImpl<V extends MvpView, P extends MvpPresenter<
     }
 
     this.delegateCallback = delegateCallback;
-    this.keepPresenterDuringScreenOrientationChange = keepPresenterDuringScreenOrientationChange;
 
     isInEditMode = view.isInEditMode();
 
     if (!isInEditMode) {
-      this.activity = PresenterManager.getActivity(delegateCallback.getContext());
-      this.activity.getApplication().registerActivityLifecycleCallbacks(this);
+      Activity activity = findActivity(view.getContext());
+      if (activity == null) {
+        activity = findActivity(delegateCallback.getContext());
+      }
+      this.activity = activity;
+      this.keepPresenterDuringScreenOrientationChange =
+          keepPresenterDuringScreenOrientationChange && activity != null;
+      if (activity != null) {
+        activity.getApplication().registerActivityLifecycleCallbacks(this);
+      }
     } else {
       this.activity = null;
+      this.keepPresenterDuringScreenOrientationChange = false;
     }
   }
 
@@ -165,6 +173,9 @@ public class ViewGroupMvpDelegateImpl<V extends MvpView, P extends MvpPresenter<
     }
     */
 
+    presenterDetached = false;
+    presenterDestroyed = false;
+
     delegateCallback.setPresenter(presenter);
     presenter.attachView(view);
 
@@ -227,7 +238,7 @@ public class ViewGroupMvpDelegateImpl<V extends MvpView, P extends MvpPresenter<
 
     if (!checkedActivityFinishing) {
 
-      boolean destroyPermanently = !ActivityMvpDelegateImpl.retainPresenterInstance(
+      boolean destroyPermanently = activity == null || !ActivityMvpDelegateImpl.retainPresenterInstance(
           keepPresenterDuringScreenOrientationChange, activity);
 
       if (destroyPermanently) {
@@ -277,6 +288,10 @@ public class ViewGroupMvpDelegateImpl<V extends MvpView, P extends MvpPresenter<
   @Override public void onActivitySaveInstanceState(Activity activity, Bundle outState) {
   }
 
+  private static Activity findActivity(Context context) {
+    return context == null ? null : PresenterManager.findActivity(context);
+  }
+
   private void destroyPresenterIfNotDoneYet() {
     if (!presenterDestroyed) {
       P presenter = delegateCallback.getPresenter();
@@ -284,7 +299,9 @@ public class ViewGroupMvpDelegateImpl<V extends MvpView, P extends MvpPresenter<
         presenter.destroy();
       }
       presenterDestroyed = true;
-      activity.getApplication().unregisterActivityLifecycleCallbacks(this);
+      if (activity != null) {
+        activity.getApplication().unregisterActivityLifecycleCallbacks(this);
+      }
       if (DEBUG) {
         Log.d(DEBUG_TAG, "Presenter destroyed: " + presenter);
       }

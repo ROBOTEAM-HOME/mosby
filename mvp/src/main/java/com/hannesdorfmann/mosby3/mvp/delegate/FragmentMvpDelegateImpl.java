@@ -19,10 +19,10 @@ package com.hannesdorfmann.mosby3.mvp.delegate;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.app.BackstackAccessor;
-import android.support.v4.app.Fragment;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.BackstackAccessor;
+import androidx.fragment.app.Fragment;
 import android.util.Log;
 import android.view.View;
 import com.hannesdorfmann.mosby3.PresenterManager;
@@ -52,6 +52,7 @@ public class FragmentMvpDelegateImpl<V extends MvpView, P extends MvpPresenter<V
 
   private MvpDelegateCallback<V, P> delegateCallback;
   protected Fragment fragment;
+  private Activity activity;
   protected final boolean keepPresenterInstanceDuringScreenOrientationChanges;
   protected final boolean keepPresenterOnBackstack;
   private boolean onViewCreatedCalled = false;
@@ -124,7 +125,7 @@ public class FragmentMvpDelegateImpl<V extends MvpView, P extends MvpPresenter<V
   }
 
   @NonNull private Activity getActivity() {
-    Activity activity = fragment.getActivity();
+    Activity activity = this.activity != null ? this.activity : fragment.getActivity();
     if (activity == null) {
       throw new NullPointerException(
           "Activity returned by Fragment.getActivity() is null. Fragment is " + fragment);
@@ -208,15 +209,15 @@ public class FragmentMvpDelegateImpl<V extends MvpView, P extends MvpPresenter<V
   }
 
   @Override public void onAttach(Activity activity) {
-
+    this.activity = activity;
   }
 
   @Override public void onAttach(Context context) {
-
+    activity = PresenterManager.findActivity(context);
   }
 
   @Override public void onDetach() {
-
+    activity = null;
   }
 
   @Override public void onSaveInstanceState(Bundle outState) {
